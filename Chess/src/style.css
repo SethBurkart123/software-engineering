@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background-color: #f0f0f0;
+  margin: 0;
+}
+
+#game {
+  position: relative;
+}
+
+#chessBoard {
+  background-image: url('/assets/board.png');
+  background-size: contain;
+  display: block;
+}
