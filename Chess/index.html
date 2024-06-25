@@ -7,10 +7,15 @@
     <title>Vite + TS</title>
   </head>
   <body>
-    <div id="game">
+    <div id="chess-container">
       <canvas id="chessBoard" width="512" height="512"></canvas>
-      <div id="turn-indicator" style="margin-top: 10px; font-size: 18px; font-weight: bold;"></div>
-    </div>
+      <div id="game-controls">
+        <button id="white-bot-button">White Bot: OFF</button>
+        <button id="black-bot-button">Black Bot: OFF</button>
+        <button id="bot-animation-button">Bot Animations: ON</button>
+      </div>
+      <div id="turn-indicator"></div>
+    </div>    
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
