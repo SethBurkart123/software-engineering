@@ -11,7 +11,10 @@ export class ChessBot {
     const moves = this.game.moves({ verbose: true });
     if (moves.length === 0) return null;
 
-    // Simple bot logic: choose a random legal move
+    // log out all legal moves
+    console.log(moves);
+
+    // return a random legal move
     const randomIndex = Math.floor(Math.random() * moves.length);
     return moves[randomIndex];
   }
