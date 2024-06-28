@@ -295,20 +295,30 @@ export class ChessGame {
 
   private makeBotMove(): void {
     if (this.isGameOver) return; // Prevent further moves if the game is over
-
+  
     if ((this.whiteBotEnabled && this.game.turn() === 'w' && this.whiteBot) ||
         (this.blackBotEnabled && this.game.turn() === 'b' && this.blackBot)) {
       const bot = this.game.turn() === 'w' ? this.whiteBot : this.blackBot;
       const move = bot!.makeMove();
       if (move) {
+        console.log('Applying move:', move);
+        console.log('Game state before move:', this.game.fen());
+  
+        // Apply the move to the game state
+        const result = this.game.move(move.san);
+        if (!result) {
+          console.error('Invalid move:', move.san);
+          return;
+        }
+  
+        console.log('Game state after move:', this.game.fen());
+  
         const fromSquare = move.from;
         const toSquare = move.to;
         const [fromX, fromY] = squareToCoords(fromSquare);
         const [toX, toY] = squareToCoords(toSquare);
-        const piece = this.pieces[this.game.turn()][pieceTypeToName(move.piece)];
-
-        this.game.move(move.san);
-
+        const piece = this.pieces[move.color][pieceTypeToName(move.piece)];
+  
         if (this.botAnimationsEnabled) {
           this.animations.push({
             piece: piece,
