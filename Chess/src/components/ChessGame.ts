@@ -19,6 +19,7 @@ export class ChessGame {
   private blackBotEnabled: boolean = false;
   private botAnimationsEnabled: boolean = true;
   private isGameOver: boolean = false;
+  private isAnimating: boolean = false; // Add this flag
 
   constructor(canvasId: string) {
     this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
@@ -116,6 +117,7 @@ export class ChessGame {
   }
 
   private animatePieces(): void {
+    this.isAnimating = true; // Set flag to true when starting animations
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.drawBoard();
 
@@ -145,6 +147,7 @@ export class ChessGame {
     if (this.animations.length > 0) {
       requestAnimationFrame(this.animatePieces.bind(this));
     } else {
+      this.isAnimating = false; // Set flag to false when animations are complete
       this.drawPieces();
       this.checkEndgame();
       this.makeBotMove();
@@ -167,7 +170,7 @@ export class ChessGame {
         const move = this.game.move({
           from: this.selectedSquare,
           to: square,
-          promotion: 'q' // Always promote to queen for simplicity
+          promotion: 'q' // promote to queen always (some versions of chess allow you to change to other pieces - but we wont)
         });
 
         if (move) {
@@ -293,32 +296,32 @@ export class ChessGame {
     }
   }
 
-  private makeBotMove(): void {
-    if (this.isGameOver) return; // Prevent further moves if the game is over
-  
+  private async makeBotMove(): Promise<void> {
+    if (this.isGameOver || this.isAnimating) return; // Prevent further moves if the game is over or animating
+
     if ((this.whiteBotEnabled && this.game.turn() === 'w' && this.whiteBot) ||
         (this.blackBotEnabled && this.game.turn() === 'b' && this.blackBot)) {
       const bot = this.game.turn() === 'w' ? this.whiteBot : this.blackBot;
-      const move = bot!.makeMove();
+      const move = await bot!.makeMove();
       if (move) {
         console.log('Applying move:', move);
         console.log('Game state before move:', this.game.fen());
-  
+
         // Apply the move to the game state
         const result = this.game.move(move.san);
         if (!result) {
           console.error('Invalid move:', move.san);
           return;
         }
-  
+
         console.log('Game state after move:', this.game.fen());
-  
+
         const fromSquare = move.from;
         const toSquare = move.to;
         const [fromX, fromY] = squareToCoords(fromSquare);
         const [toX, toY] = squareToCoords(toSquare);
         const piece = this.pieces[move.color][pieceTypeToName(move.piece)];
-  
+
         if (this.botAnimationsEnabled) {
           this.animations.push({
             piece: piece,
@@ -338,7 +341,7 @@ export class ChessGame {
             toX: toX * TILE_SIZE,
             toY: toY * TILE_SIZE,
             progress: 0,
-            duration: 0 // Set duration to 0 for instant move
+            duration: 0
           });
           requestAnimationFrame(this.animatePieces.bind(this)); // Ensure move is displayed correctly
         }
