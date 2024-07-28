@@ -1,3 +1,4 @@
+// chessBotWorker.ts
 import { Chess, Move, Piece } from 'chess.js';
 
 let game: Chess;
@@ -54,7 +55,7 @@ function minimaxRoot(depth: number, isMaximisingPlayer: boolean): string | null 
     game.undo();
     if (value > bestMove) {
       bestMove = value;
-      bestMoveFound = move.san;
+      bestMoveFound = move;
     }
     incrementMovesAnalyzed();
   }

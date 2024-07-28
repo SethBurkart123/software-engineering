@@ -26,12 +26,13 @@ export class ChessBot {
           worker.terminate();
           return;
         }
+        // Apply the move using the full move object
         const bestMove = this.game.move(event.data.bestMove);
         if (bestMove) {
           console.log(`Best move: ${bestMove.san}`);
           resolve(bestMove);
         } else {
-          reject(new Error(`Invalid move: ${event.data.bestMove}`));
+          reject(new Error(`Invalid move: ${JSON.stringify(event.data.bestMove)}`));
         }
         worker.terminate();
       };
