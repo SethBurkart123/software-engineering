@@ -116,7 +116,7 @@ export class ChessGame {
     }
   }
 
-  private animatePieces(): void {
+  private async animatePieces(): Promise<void> {
     this.isAnimating = true; // Set flag to true when starting animations
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     this.drawBoard();
@@ -150,7 +150,7 @@ export class ChessGame {
       this.isAnimating = false; // Set flag to false when animations are complete
       this.drawPieces();
       this.checkEndgame();
-      this.makeBotMove();
+      await this.makeBotMove();
     }
   }
 
@@ -304,17 +304,12 @@ export class ChessGame {
       const bot = this.game.turn() === 'w' ? this.whiteBot : this.blackBot;
       const move = await bot!.makeMove();
       if (move) {
-        console.log('Applying move:', move);
-        console.log('Game state before move:', this.game.fen());
-
         // Apply the move to the game state
-        const result = this.game.move(move.san);
+        const result = this.game.move(move);
         if (!result) {
           console.error('Invalid move:', move.san);
           return;
         }
-
-        console.log('Game state after move:', this.game.fen());
 
         const fromSquare = move.from;
         const toSquare = move.to;

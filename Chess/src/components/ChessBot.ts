@@ -2,44 +2,52 @@ import { Chess, Move } from 'chess.js';
 
 export class ChessBot {
   private game: Chess;
+  private static worker: Worker | null = null;
 
   constructor(game: Chess) {
     this.game = game;
   }
 
+  private static getWorker(): Worker {
+    if (!this.worker) {
+      this.worker = new Worker(new URL('./ChessBotWorker.ts', import.meta.url), { type: 'module' });
+    }
+    return this.worker;
+  }
+
   async makeMove(): Promise<Move | null> {
     return new Promise((resolve, reject) => {
-      const worker = new Worker(new URL('./ChessBotWorker.ts', import.meta.url), { type: 'module' });
-      worker.postMessage({ 
-        fen: this.game.fen(),
-        turn: this.game.turn()
-      });
-      worker.onmessage = (event) => {
+      const worker = ChessBot.getWorker();
+
+      const handleMessage = (event: MessageEvent) => {
         if (event.data.error) {
           console.error(event.data.error);
           reject(new Error(event.data.error));
-          worker.terminate();
+          worker.removeEventListener('message', handleMessage);
           return;
         }
         if (!event.data.bestMove) {
           reject(new Error("No valid moves available"));
-          worker.terminate();
+          worker.removeEventListener('message', handleMessage);
           return;
         }
-        // Apply the move using the full move object
-        const bestMove = this.game.move(event.data.bestMove);
-        if (bestMove) {
-          console.log(`Best move: ${bestMove.san}`);
-          resolve(bestMove);
-        } else {
-          reject(new Error(`Invalid move: ${JSON.stringify(event.data.bestMove)}`));
-        }
-        worker.terminate();
+
+        resolve(event.data.bestMove);
+        worker.removeEventListener('message', handleMessage);
       };
-      worker.onerror = (error) => {
+
+      const handleError = (error: ErrorEvent) => {
         reject(error);
-        worker.terminate();
+        worker.removeEventListener('error', handleError);
       };
+
+      worker.addEventListener('message', handleMessage);
+      worker.addEventListener('error', handleError);
+
+      worker.postMessage({
+        fen: this.game.fen(),
+        turn: this.game.turn()
+      });
     });
   }
 }
