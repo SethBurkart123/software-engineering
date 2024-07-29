@@ -19,7 +19,8 @@ export class ChessGame {
   private blackBotEnabled: boolean = false;
   private botAnimationsEnabled: boolean = true;
   private isGameOver: boolean = false;
-  private isAnimating: boolean = false; // Add this flag
+  private isAnimating: boolean = false;
+  private simpleBot: boolean = false;
 
   constructor(canvasId: string) {
     this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
@@ -32,6 +33,7 @@ export class ChessGame {
 
     document.getElementById('white-bot-button')?.addEventListener('click', this.toggleWhiteBot.bind(this));
     document.getElementById('black-bot-button')?.addEventListener('click', this.toggleBlackBot.bind(this));
+    document.getElementById('simple-bot-button')?.addEventListener('click', this.toggleSimpleBot.bind(this));
     document.getElementById('bot-animation-button')?.addEventListener('click', this.toggleBotAnimations.bind(this));
   }
 
@@ -264,6 +266,11 @@ export class ChessGame {
     animateEndGame(0);
   }
 
+  private toggleSimpleBot(): void {
+    this.simpleBot = !this.simpleBot;
+    document.getElementById('simple-bot-button')!.textContent = `Simple Bot: ${this.simpleBot ? 'ON' : 'OFF'}`;
+  }
+
   private toggleWhiteBot(): void {
     this.whiteBotEnabled = !this.whiteBotEnabled;
     if (this.whiteBotEnabled) {
@@ -302,7 +309,7 @@ export class ChessGame {
     if ((this.whiteBotEnabled && this.game.turn() === 'w' && this.whiteBot) ||
         (this.blackBotEnabled && this.game.turn() === 'b' && this.blackBot)) {
       const bot = this.game.turn() === 'w' ? this.whiteBot : this.blackBot;
-      const move = await bot!.makeMove();
+      const move = await bot!.makeMove(this.simpleBot);
       if (move) {
         // Apply the move to the game state
         const result = this.game.move(move);

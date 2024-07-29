@@ -1,25 +1,24 @@
 import { Chess, Move, Piece } from 'chess.js';
 
 let game: Chess;
-let transpositionTable: Map<string, { score: number, depth: number }> = new Map();
 let movesAnalyzed = 0;
 
 self.onmessage = (event) => {
-  console.log('Worker: Received message', event.data);
+  console.log('Simple Worker: Received message', event.data);
   game = new Chess(event.data.fen);
-  console.log(`Worker: Initialized game with FEN: ${game.fen()}`);
+  console.log(`Simple Worker: Initialized game with FEN: ${game.fen()}`);
   const turn = event.data.turn;
-  console.log(`Worker: Received turn: ${turn}`);
-  console.log(`Worker: Current game turn: ${game.turn()}`);
+  console.log(`Simple Worker: Received turn: ${turn}`);
+  console.log(`Simple Worker: Current game turn: ${game.turn()}`);
   if (game.turn() !== turn) {
-    console.error('Worker: Game state and turn do not match');
+    console.error('Simple Worker: Game state and turn do not match');
     self.postMessage({ error: "Game state and turn do not match" });
     return;
   }
-  console.log('Worker: Starting iterative deepening search');
+  console.log('Simple Worker: Starting iterative deepening search');
   movesAnalyzed = 0;
   const bestMove = iterativeDeepeningSearch(1000); // 1 second time limit
-  console.log(`Worker: Best move found: ${bestMove}`);
+  console.log(`Simple Worker: Best move found: ${bestMove}`);
   self.postMessage({ bestMove });
 };
 
@@ -29,11 +28,11 @@ function iterativeDeepeningSearch(timeLimit: number): Move | null {
   let bestMove: Move | null = null;
 
   while (Date.now() - startTime < timeLimit) {
-    console.log(`Worker: Searching at depth ${depth}`);
+    console.log(`Simple Worker: Searching at depth ${depth}`);
     const move = minimaxRoot(depth, true);
     if (move) {
       bestMove = move;
-      console.log(`Worker: Found move at depth ${depth}: ${move}`);
+      console.log(`Simple Worker: Found move at depth ${depth}: ${move}`);
     }
     depth++;
   }
@@ -43,7 +42,7 @@ function iterativeDeepeningSearch(timeLimit: number): Move | null {
 
 function minimaxRoot(depth: number, isMaximisingPlayer: boolean): Move | null {
   const moves = game.moves({ verbose: true });
-  console.log(`Worker: Available moves: ${moves.map(m => m.san).join(', ')}`);
+  console.log(`Simple Worker: Available moves: ${moves.map(m => m.san).join(', ')}`);
   let bestMove = -Infinity;
   let bestMoveFound: Move | null = null;
 
@@ -60,17 +59,11 @@ function minimaxRoot(depth: number, isMaximisingPlayer: boolean): Move | null {
     incrementMovesAnalyzed();
   }
 
-  console.log(`Worker: Best move found in minimaxRoot: ${bestMoveFound}`);
+  console.log(`Simple Worker: Best move found in minimaxRoot: ${bestMoveFound}`);
   return bestMoveFound;
 }
 
 function minimax(depth: number, alpha: number, beta: number, isMaximisingPlayer: boolean): number {
-  const fen = game.fen();
-  const cachedResult = transpositionTable.get(fen);
-  if (cachedResult && cachedResult.depth >= depth) {
-    return cachedResult.score;
-  }
-
   if (depth === 0) {
     return quiescenceSearch(alpha, beta, isMaximisingPlayer);
   }
@@ -96,7 +89,6 @@ function minimax(depth: number, alpha: number, beta: number, isMaximisingPlayer:
     if (beta <= alpha) break;
   }
 
-  transpositionTable.set(fen, { score: bestMove, depth });
   return bestMove;
 }
 
