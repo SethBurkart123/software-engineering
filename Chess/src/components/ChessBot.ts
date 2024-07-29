@@ -5,10 +5,12 @@ export class ChessBot {
   private static worker: Worker | null = null;
   private static simpleWorker: Worker | null = null;
   private statDisplay: HTMLElement | null = null;
+  private maxDepth: HTMLInputElement | null = null;
 
   constructor(game: Chess) {
     this.game = game;
     this.statDisplay = document.getElementById('moves-analyzed');
+    this.maxDepth = document.getElementById('max-depth') as HTMLInputElement;
   }
 
   private static getWorker(): Worker {
@@ -31,7 +33,6 @@ export class ChessBot {
       console.log(simpleBot)
 
       const handleMessage = (event: MessageEvent) => {
-        // if this is a number
         if (typeof event.data.moves === 'number') {
           if (this.statDisplay) {
             this.statDisplay.innerText = event.data.moves.toString();
@@ -66,7 +67,8 @@ export class ChessBot {
 
       worker.postMessage({
         fen: this.game.fen(),
-        turn: this.game.turn()
+        turn: this.game.turn(),
+        depth: this.maxDepth?.value
       });
 
       if (this.statDisplay) {

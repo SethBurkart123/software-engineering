@@ -4,123 +4,69 @@ let game: Chess;
 let movesAnalyzed = 0;
 
 self.onmessage = (event) => {
-  console.log('Simple Worker: Received message', event.data);
+  console.log('Simple Worker: Started', event.data);
   game = new Chess(event.data.fen);
-  console.log(`Simple Worker: Initialized game with FEN: ${game.fen()}`);
   const turn = event.data.turn;
-  console.log(`Simple Worker: Received turn: ${turn}`);
-  console.log(`Simple Worker: Current game turn: ${game.turn()}`);
   if (game.turn() !== turn) {
-    console.error('Simple Worker: Game state and turn do not match');
     self.postMessage({ error: "Game state and turn do not match" });
     return;
   }
-  console.log('Simple Worker: Starting iterative deepening search');
   movesAnalyzed = 0;
-  const bestMove = iterativeDeepeningSearch(1000); // 1 second time limit
-  console.log(`Simple Worker: Best move found: ${bestMove}`);
+  const bestMove = iterativeDeepeningSearch(event.data.depth);
   self.postMessage({ bestMove });
 };
 
-function iterativeDeepeningSearch(timeLimit: number): Move | null {
-  const startTime = Date.now();
-  let depth = 1;
+function iterativeDeepeningSearch(maxDepth: number): Move | null {
   let bestMove: Move | null = null;
-
-  while (Date.now() - startTime < timeLimit) {
-    console.log(`Simple Worker: Searching at depth ${depth}`);
-    const move = minimaxRoot(depth, true);
-    if (move) {
-      bestMove = move;
-      console.log(`Simple Worker: Found move at depth ${depth}: ${move}`);
-    }
-    depth++;
+  for (let depth = 1; depth <= maxDepth; depth++) {
+    bestMove = minimaxRoot(depth, true);
   }
-
-  return bestMove || null;
+  return bestMove;
 }
 
 function minimaxRoot(depth: number, isMaximisingPlayer: boolean): Move | null {
   const moves = game.moves({ verbose: true });
-  console.log(`Simple Worker: Available moves: ${moves.map(m => m.san).join(', ')}`);
-  let bestMove = -Infinity;
-  let bestMoveFound: Move | null = null;
-
-  moves.sort((a, b) => evaluateMove(b) - evaluateMove(a));
+  let bestValue = -Infinity;
+  let bestMove: Move | null = null;
 
   for (const move of moves) {
     game.move(move);
     const value = minimax(depth - 1, -Infinity, Infinity, !isMaximisingPlayer);
     game.undo();
-    if (value > bestMove) {
-      bestMove = value;
-      bestMoveFound = move;
-    }
-    incrementMovesAnalyzed();
-  }
 
-  console.log(`Simple Worker: Best move found in minimaxRoot: ${bestMoveFound}`);
-  return bestMoveFound;
+    if (value > bestValue) {
+      bestValue = value;
+      bestMove = move;
+    }
+    movesAnalyzed++;
+    self.postMessage({ moves: movesAnalyzed });
+  }
+  return bestMove;
 }
 
 function minimax(depth: number, alpha: number, beta: number, isMaximisingPlayer: boolean): number {
   if (depth === 0) {
-    return quiescenceSearch(alpha, beta, isMaximisingPlayer);
+    return evaluateBoard();
   }
 
   const moves = game.moves({ verbose: true });
-  moves.sort((a, b) => evaluateMove(b) - evaluateMove(a));
+  let bestValue = isMaximisingPlayer ? -Infinity : Infinity;
 
-  let bestMove = isMaximisingPlayer ? -Infinity : Infinity;
   for (const move of moves) {
     game.move(move);
     const value = minimax(depth - 1, alpha, beta, !isMaximisingPlayer);
     game.undo();
 
     if (isMaximisingPlayer) {
-      bestMove = Math.max(bestMove, value);
-      alpha = Math.max(alpha, bestMove);
+      bestValue = Math.max(bestValue, value);
+      alpha = Math.max(alpha, bestValue);
     } else {
-      bestMove = Math.min(bestMove, value);
-      beta = Math.min(beta, bestMove);
+      bestValue = Math.min(bestValue, value);
+      beta = Math.min(beta, bestValue);
     }
-
-    incrementMovesAnalyzed();
     if (beta <= alpha) break;
   }
-
-  return bestMove;
-}
-
-function incrementMovesAnalyzed() {
-  movesAnalyzed++;
-  self.postMessage({ moves: movesAnalyzed });
-}
-
-function quiescenceSearch(alpha: number, beta: number, isMaximisingPlayer: boolean): number {
-  const standPat = evaluateBoard();
-  if (isMaximisingPlayer) {
-    if (standPat >= beta) return beta;
-    alpha = Math.max(alpha, standPat);
-  } else {
-    if (standPat <= alpha) return alpha;
-    beta = Math.min(beta, standPat);
-  }
-
-  const moves = game.moves({ verbose: true }).filter(move => move.flags.includes('c'));
-  for (const move of moves) {
-    game.move(move.san);
-    const score = quiescenceSearch(alpha, beta, !isMaximisingPlayer);
-    game.undo();
-    if (isMaximisingPlayer) {
-      alpha = Math.max(alpha, score);
-      if (alpha >= beta) return alpha;
-    } else {
-      beta = Math.min(beta, score);
-      if (alpha >= beta) return beta;
-    }
-  }
-  return isMaximisingPlayer ? alpha : beta;
+  return bestValue;
 }
 
 function evaluateBoard(): number {
@@ -128,129 +74,17 @@ function evaluateBoard(): number {
   let totalEvaluation = 0;
   for (let i = 0; i < 8; i++) {
     for (let j = 0; j < 8; j++) {
-      totalEvaluation += getPieceValue(board[i][j], i, j);
+      totalEvaluation += getPieceValue(board[i][j]);
     }
   }
-  totalEvaluation += evaluateKingSafety(board);
-  totalEvaluation += evaluatePawnStructure(board);
   return totalEvaluation;
 }
 
-function getPieceValue(piece: Piece | null, x: number, y: number): number {
+function getPieceValue(piece: Piece | null): number {
   if (!piece) return 0;
-  const isWhite = piece.color === 'w';
-  const pieceValue = getAbsoluteValue(piece, isWhite, x, y);
-  return isWhite ? pieceValue : -pieceValue;
+  const values = { p: 10, r: 50, n: 30, b: 30, q: 90, k: 900 };
+  const pieceValue = values[piece.type];
+  return piece.color === 'w' ? pieceValue : -pieceValue;
 }
 
-function getAbsoluteValue(piece: Piece, isWhite: boolean, x: number, y: number): number {
-  switch (piece.type) {
-    case 'p':
-      return 10 + (isWhite ? pawnEvalWhite[y][x] : pawnEvalBlack[y][x]);
-    case 'r':
-      return 50 + (isWhite ? rookEvalWhite[y][x] : rookEvalBlack[y][x]);
-    case 'n':
-      return 30 + knightEval[y][x];
-    case 'b':
-      return 30 + (isWhite ? bishopEvalWhite[y][x] : bishopEvalBlack[y][x]);
-    case 'q':
-      return 90 + evalQueen[y][x];
-    case 'k':
-      return 900 + (isWhite ? kingEvalWhite[y][x] : kingEvalBlack[y][x]);
-    default:
-      throw new Error(`Unknown piece type: ${piece.type}`);
-  }
-}
-
-function evaluateMove(move: Move): number {
-  const pieceValues = { p: 10, r: 50, n: 30, b: 30, q: 90, k: 900 };
-  const piece = game.get(move.to);
-  return piece ? pieceValues[piece.type] : 0;
-}
-
-function evaluateKingSafety(board: (Piece | null)[][]): number {
-  // Placeholder implementation
-  return 0;
-}
-
-function evaluatePawnStructure(board: (Piece | null)[][]): number {
-  // Placeholder implementation
-  return 0;
-}
-
-// Piece square tables and evaluation values
-const reverseArray = (array: number[][]): number[][] => array.slice().reverse();
-
-const pawnEvalWhite = [
-  [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-  [5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0, 5.0],
-  [1.0, 1.0, 2.0, 3.0, 3.0, 2.0, 1.0, 1.0],
-  [0.5, 0.5, 1.0, 2.5, 2.5, 1.0, 0.5, 0.5],
-  [0.0, 0.0, 0.0, 2.0, 2.0, 0.0, 0.0, 0.0],
-  [0.5, -0.5, -1.0, 0.0, 0.0, -1.0, -0.5, 0.5],
-  [0.5, 1.0, 1.0, -2.0, -2.0, 1.0, 1.0, 0.5],
-  [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-];
-
-const pawnEvalBlack = reverseArray(pawnEvalWhite);
-
-const knightEval = [
-  [-5.0, -4.0, -3.0, -3.0, -3.0, -3.0, -4.0, -5.0],
-  [-4.0, -2.0, 0.0, 0.0, 0.0, 0.0, -2.0, -4.0],
-  [-3.0, 0.0, 1.0, 1.5, 1.5, 1.0, 0.0, -3.0],
-  [-3.0, 0.5, 1.5, 2.0, 2.0, 1.5, 0.5, -3.0],
-  [-3.0, 0.0, 1.5, 2.0, 2.0, 1.5, 0.0, -3.0],
-  [-3.0, 0.5, 1.0, 1.5, 1.5, 1.0, 0.5, -3.0],
-  [-4.0, -2.0, 0.0, 0.5, 0.5, 0.0, -2.0, -4.0],
-  [-5.0, -4.0, -3.0, -3.0, -3.0, -3.0, -4.0, -5.0]
-];
-
-const bishopEvalWhite = [
-  [-2.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -2.0],
-  [-1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0],
-  [-1.0, 0.0, 0.5, 1.0, 1.0, 0.5, 0.0, -1.0],
-  [-1.0, 0.5, 0.5, 1.0, 1.0, 0.5, 0.5, -1.0],
-  [-1.0, 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, -1.0],
-  [-1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, -1.0],
-  [-1.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.5, -1.0],
-  [-2.0, -1.0, -1.0, -1.0, -1.0, -1.0, -1.0, -2.0]
-];
-
-const bishopEvalBlack = reverseArray(bishopEvalWhite);
-
-const rookEvalWhite = [
-  [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-  [0.5, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.5],
-  [-0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.5],
-  [-0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.5],
-  [-0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.5],
-  [-0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.5],
-  [-0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.5],
-  [0.0, 0.0, 0.0, 0.5, 0.5, 0.0, 0.0, 0.0]
-];
-
-const rookEvalBlack = reverseArray(rookEvalWhite);
-
-const evalQueen = [
-  [-2.0, -1.0, -1.0, -0.5, -0.5, -1.0, -1.0, -2.0],
-  [-1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0],
-  [-1.0, 0.0, 0.5, 0.5, 0.5, 0.5, 0.0, -1.0],
-  [-0.5, 0.0, 0.5, 0.5, 0.5, 0.5, 0.0, -0.5],
-  [0.0, 0.0, 0.5, 0.5, 0.5, 0.5, 0.0, -0.5],
-  [-1.0, 0.5, 0.5, 0.5, 0.5, 0.5, 0.0, -1.0],
-  [-1.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0, -1.0],
-  [-2.0, -1.0, -1.0, -0.5, -0.5, -1.0, -1.0, -2.0]
-];
-
-const kingEvalWhite = [
-  [-3.0, -4.0, -4.0, -5.0, -5.0, -4.0, -4.0, -3.0],
-  [-3.0, -4.0, -4.0, -5.0, -5.0, -4.0, -4.0, -3.0],
-  [-3.0, -4.0, -4.0, -5.0, -5.0, -4.0, -4.0, -3.0],
-  [-3.0, -4.0, -4.0, -5.0, -5.0, -4.0, -4.0, -3.0],
-  [-2.0, -3.0, -3.0, -4.0, -4.0, -3.0, -3.0, -2.0],
-  [-1.0, -2.0, -2.0, -2.0, -2.0, -2.0, -2.0, -1.0],
-  [2.0, 2.0, 0.0, 0.0, 0.0, 0.0, 2.0, 2.0],
-  [2.0, 3.0, 1.0, 0.0, 0.0, 1.0, 3.0, 2.0]
-];
-
-const kingEvalBlack = reverseArray(kingEvalWhite);
+// No need for complex piece-square tables in this simplified version

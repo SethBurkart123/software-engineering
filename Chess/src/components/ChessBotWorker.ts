@@ -5,35 +5,27 @@ let transpositionTable: Map<string, { score: number, depth: number }> = new Map(
 let movesAnalyzed = 0;
 
 self.onmessage = (event) => {
-  console.log('Worker: Received message', event.data);
+  console.log('Worker: Started', event.data);
   game = new Chess(event.data.fen);
-  console.log(`Worker: Initialized game with FEN: ${game.fen()}`);
   const turn = event.data.turn;
-  console.log(`Worker: Received turn: ${turn}`);
-  console.log(`Worker: Current game turn: ${game.turn()}`);
   if (game.turn() !== turn) {
-    console.error('Worker: Game state and turn do not match');
     self.postMessage({ error: "Game state and turn do not match" });
     return;
   }
   console.log('Worker: Starting iterative deepening search');
   movesAnalyzed = 0;
-  const bestMove = iterativeDeepeningSearch(1000); // 1 second time limit
-  console.log(`Worker: Best move found: ${bestMove}`);
+  const bestMove = iterativeDeepeningSearch(event.data.depth);
   self.postMessage({ bestMove });
 };
 
-function iterativeDeepeningSearch(timeLimit: number): Move | null {
-  const startTime = Date.now();
+function iterativeDeepeningSearch(maxDepth: number): Move | null {
   let depth = 1;
   let bestMove: Move | null = null;
 
-  while (Date.now() - startTime < timeLimit) {
-    console.log(`Worker: Searching at depth ${depth}`);
+  while (depth < maxDepth) {
     const move = minimaxRoot(depth, true);
     if (move) {
       bestMove = move;
-      console.log(`Worker: Found move at depth ${depth}: ${move}`);
     }
     depth++;
   }
