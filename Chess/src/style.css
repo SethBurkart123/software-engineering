@@ -19,4 +19,6 @@ body {
   background-image: url('/assets/board.png');
   background-size: contain;
   display: block;
+  height: 512px;
+  width: auto;
 }

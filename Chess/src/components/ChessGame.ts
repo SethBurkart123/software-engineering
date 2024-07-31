@@ -25,6 +25,8 @@ export class ChessGame {
   constructor(canvasId: string) {
     this.canvas = document.getElementById(canvasId) as HTMLCanvasElement;
     this.ctx = this.canvas.getContext('2d')!;
+    this.canvas.width = 1024;
+    this.canvas.height = 1024;
     this.game = new Chess();
     this.boardImage = new Image();
     this.pieces = { b: {}, w: {} } as PieceImages;
@@ -38,15 +40,15 @@ export class ChessGame {
   }
 
   private initializeImages(): void {
-    this.boardImage.src = '/assets/Board.png';
+    this.boardImage.src = '/assets/Board.svg';
     this.boardImage.onload = this.imageLoadCallback.bind(this);
 
     const pieceTypes = ['Bishop', 'King', 'Knight', 'Pawn', 'Queen', 'Rook'];
     pieceTypes.forEach(piece => {
       this.pieces.b[piece] = new Image();
       this.pieces.w[piece] = new Image();
-      this.pieces.b[piece].src = `/assets/pieces/black/${piece}.png`;
-      this.pieces.w[piece].src = `/assets/pieces/white/${piece}.png`;
+      this.pieces.b[piece].src = `/assets/pieces/black/${piece}.svg`;
+      this.pieces.w[piece].src = `/assets/pieces/white/${piece}.svg`;
       this.pieces.b[piece].onload = this.imageLoadCallback.bind(this);
       this.pieces.w[piece].onload = this.imageLoadCallback.bind(this);
     });
@@ -159,10 +161,11 @@ export class ChessGame {
   private handleClick(event: MouseEvent): void {
     if (this.isGameOver) return; // Prevent interaction if game is over
 
+    
     const rect = this.canvas.getBoundingClientRect();
     const [x, y] = pixelToSquare(event.clientX - rect.left, event.clientY - rect.top);
     const square = coordsToSquare(x, y);
-
+    
     const piece = this.game.get(square) as ChessPiece | null;
 
     if (this.selectedSquare) {

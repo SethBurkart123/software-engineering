@@ -28,5 +28,5 @@ export function easeInOutQuad(t: number): number {
 }
 
 export function pixelToSquare(x: number, y: number): [number, number] {
-  return [Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE)];
+  return [Math.floor(x / (TILE_SIZE / 2)), Math.floor(y / (TILE_SIZE / 2))];
 }
