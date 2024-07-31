@@ -1,4 +1,5 @@
-import { Chess, Move } from 'chess.js';
+import { Chess, Move, Piece } from 'chess.js';
+import { PIECE_SQUARE_TABLES } from './PieceSquareTables';
 
 // Global variables
 let game: Chess;
@@ -98,6 +99,11 @@ function minimax(depth: number, alpha: number, beta: number, isMaximisingPlayer:
     return cachedResult.score;
   }
 
+  // If we've reached the maximum depth, perform a quiescence search
+  if (depth === 0) {
+    return quiescenceSearch(alpha, beta, isMaximisingPlayer);
+  }
+
   const moves = game.moves({ verbose: true });
   
   // Sort moves for better pruning (move ordering optimization)
@@ -130,6 +136,96 @@ function minimax(depth: number, alpha: number, beta: number, isMaximisingPlayer:
   return bestMove;
 }
 
+// Quiescence Search
+// This function continues the search in positions that involve captures
+// to avoid the "horizon effect" (where shallow search might miss critical captures) 
+// and provide more stable evaluations by considering only significant moves
+function quiescenceSearch(alpha: number, beta: number, isMaximisingPlayer: boolean): number {
+  // Evaluate the current board position and get the static evaluation score
+  const standPat = evaluateBoard();
+  
+  // If the current player is maximizing (trying to get the highest score)
+  if (isMaximisingPlayer) {
+    // If the evaluation score is greater than or equal to beta, return beta
+    // because the current move is not useful; it's already worse than what the opponent can achieve
+    if (standPat >= beta) return beta;
+
+    // Update alpha with the maximum value between alpha and the current evaluation score
+    alpha = Math.max(alpha, standPat);
+  } else {
+    // If the current player is minimizing (trying to get the lowest score)
+    // If the evaluation score is less than or equal to alpha, return alpha
+    // because the current move is not useful; it's already worse than what the maximizing player can achieve
+    if (standPat <= alpha) return alpha;
+
+    // Update beta with the minimum value between beta and the current evaluation score
+    beta = Math.min(beta, standPat);
+  }
+
+  // Get all possible moves from the current position
+  // Only consider capture moves ('c' in flags) for further searching
+  const moves = game.moves({ verbose: true }).filter(move => move.flags.includes('c'));
+
+  // Iterate through each capture move
+  for (const move of moves) {
+    // Make the move on the board
+    game.move(move.san);
+    
+    // Recursively call quiescence search on the new board position
+    const score = quiescenceSearch(alpha, beta, !isMaximisingPlayer);
+
+    // Undo the move to restore the original board state
+    game.undo();
+
+    // If the current player is maximizing
+    if (isMaximisingPlayer) {
+      // Update alpha with the maximum value between alpha and the current score
+      alpha = Math.max(alpha, score);
+      // If alpha is greater than or equal to beta, prune the search (beta cutoff)
+      if (alpha >= beta) return alpha;
+    } else {
+      // If the current player is minimizing
+      // Update beta with the minimum value between beta and the current score
+      beta = Math.min(beta, score);
+      // If beta is less than or equal to alpha, prune the search (alpha cutoff)
+      if (alpha >= beta) return beta;
+    }
+  }
+  
+  // Return the final alpha or beta value depending on whether the current player is maximizing or minimizing
+  return isMaximisingPlayer ? alpha : beta;
+}
+
+// 2. Evaluation: Material count with piece-square tables
+
+// Evaluate the board and return a score
+function evaluateBoard(): number {
+  const board = game.board();
+  let totalEvaluation = 0;
+  for (let i = 0; i < 8; i++) {
+    for (let j = 0; j < 8; j++) {
+      // loop through every piece and add its value to the total evaluation
+      totalEvaluation += getPieceValue(board[i][j], i, j);
+    }
+  }
+  return totalEvaluation;
+}
+
+// Get the value of a piece at a specific position
+function getPieceValue(piece: Piece | null, x: number, y: number): number {
+  if (!piece) return 0;
+  const isWhite = piece.color === 'w';
+  const pieceValue = getAbsoluteValue(piece, isWhite, x, y);
+  return isWhite ? pieceValue : -pieceValue;
+}
+
+// Calculate the absolute value of a piece considering its position
+function getAbsoluteValue(piece: Piece, isWhite: boolean, x: number, y: number): number {
+  const pieceType = piece.type;
+  const pieceSquareTable = getPieceSquareTable(pieceType, isWhite);
+  return PIECE_VALUES[pieceType] + pieceSquareTable[y][x];
+}
+
 // Give different pieces different values
 const PIECE_VALUES = {
   p: 10,  // Pawn
@@ -139,6 +235,19 @@ const PIECE_VALUES = {
   q: 90,  // Queen
   k: 900  // King
 };
+
+// Get the appropriate piece-square table for a given piece type and color
+function getPieceSquareTable(pieceType: string, isWhite: boolean): number[][] {
+  switch (pieceType) {
+    case 'p': return isWhite ? PIECE_SQUARE_TABLES.pawnEvalWhite : PIECE_SQUARE_TABLES.pawnEvalBlack;
+    case 'r': return isWhite ? PIECE_SQUARE_TABLES.rookEvalWhite : PIECE_SQUARE_TABLES.rookEvalBlack;
+    case 'n': return PIECE_SQUARE_TABLES.knightEval;
+    case 'b': return isWhite ? PIECE_SQUARE_TABLES.bishopEvalWhite : PIECE_SQUARE_TABLES.bishopEvalBlack;
+    case 'q': return PIECE_SQUARE_TABLES.evalQueen;
+    case 'k': return isWhite ? PIECE_SQUARE_TABLES.kingEvalWhite : PIECE_SQUARE_TABLES.kingEvalBlack;
+    default: throw new Error(`Unknown piece type: ${pieceType}`);
+  }
+}
 
 // 3. Move Ordering: MVV-LVA (Most Valuable Victim - Least Valuable Attacker) -> found from https://www.reddit.com/r/chessprogramming/comments/11zv78n/move_ordering_for_minimax_optimization/
 
