@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Button } from './Button';
 import { XIcon, CircleIcon } from 'lucide-react';
 import { makeMove } from './botLogic';
 
@@ -56,9 +55,8 @@ const TicTacToe = () => {
       transition={{ duration: 0.01, ease: "easeOut" }}
       className="flex items-center justify-center rounded-xl btn btn__square"
       >
-      <Button
-        variant="ghost"
-        className="w-full h-full text-4xl font-bold"
+      <button
+        className="inline-flex items-center justify-center w-full h-full text-sm font-medium transition-colors rounded-md whitespace-nowrap"
         onClick={() => handleClick(i)}
       >
         {board[i] === 'X' && (
@@ -79,7 +77,7 @@ const TicTacToe = () => {
             <CircleIcon className="w-12 h-12 text-red-600" />
           </motion.div>
         )}
-      </Button>
+      </button>
     </motion.div>
   );
 
@@ -124,18 +122,18 @@ const TicTacToe = () => {
             whileTap={{ scale: 0.95 }}
             transition={{ type: "spring", stiffness: 260, damping: 15 }}
           >
-            <Button onClick={resetGame} className="w-full btn btn__primary">
+            <button onClick={resetGame} className="h-[3rem] rounded-2xl w-[11.25rem] btn btn__primary">
               Reset Game
-            </Button>
+            </button>
           </motion.div>
           <motion.div
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             transition={{ type: "spring", stiffness: 260, damping: 15 }}
           >
-            <Button onClick={toggleBot} className={`w-full btn btn__secondary`}>
+            <button onClick={toggleBot} className={`btn btn__secondary rounded-2xl h-[3rem] w-[11.25rem]`}>
               {botEnabled ? 'Disable Bot' : 'Enable Bot'}
-            </Button>
+            </button>
           </motion.div>
         </div>
       </motion.div>
