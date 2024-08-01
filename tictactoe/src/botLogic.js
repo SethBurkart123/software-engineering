@@ -1,5 +1,3 @@
-// botLogic.js
-
 export const makeMove = (board) => {
   return minimax(board, 'O').index;
 };
