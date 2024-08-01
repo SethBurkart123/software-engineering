@@ -1,5 +1,10 @@
 export const makeMove = (board) => {
-  return minimax(board, 'O').index;
+  // time the function
+  const start = performance.now();
+  const val = minimax(board, 'O').index
+  const end = performance.now();
+  console.log(`Time taken: ${end - start} milliseconds`);
+  return val;
 };
 
 const minimax = (board, player, alpha = -Infinity, beta = Infinity, depth = 0) => {
